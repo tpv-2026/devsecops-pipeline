@@ -91,5 +91,12 @@ pipeline {
                 }
             }
         }
+        stage('Trivy Scan') {
+            steps {
+                sh '''
+                    trivy image devsecops-pipeline-app:latest
+                '''
+            }
+        }
     }
 }

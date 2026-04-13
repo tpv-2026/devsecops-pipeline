@@ -94,7 +94,7 @@ pipeline {
         stage('Trivy Scan') {
             steps {
                 sh '''
-                    trivy image --severity HIGH,CRITICAL --exit code 1 devsecops-pipeline-app:latest
+                    trivy image --severity HIGH,CRITICAL --exit-code 1 devsecops-pipeline-app:latest
                 '''
             }
         }

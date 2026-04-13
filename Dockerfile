@@ -12,4 +12,9 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+#Install Trivy
+
+RUN wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.1_Linux-64bit.deb \
+    && dpkg -i trivy_0.50.1_Linux-64bit.deb \
+
 USER jenkins

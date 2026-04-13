@@ -33,6 +33,25 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            steps {
+                dir('app') {
+                    script {
+                        def scannerHome = tool 'SonarScanner'
+                        withSonarQubeEnv('SonarQube') {
+                            sh """
+                                ${scannerHome}/bin/sonar-scanner \
+                                -Dsonar.projectKey=devsecops-pipeline \
+                                -Dsonar.projectName=DevSecOps_Pipeline \
+                                -Dsonar.sources=. \
+                                -Dsonar.python.version=3.13
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Run Tests') {
             steps {
                 dir('app') {

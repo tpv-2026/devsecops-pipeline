@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     git \
     curl \
+    docker.io \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

@@ -82,5 +82,14 @@ pipeline {
                 }
             }
         }
+        stage('Docker Build') {
+            steps {
+                dir('app') {
+                    sh '''
+                        docker build -t devsecops-pipeline-app:latest .
+                    '''
+                }
+            }
+        }
     }
 }

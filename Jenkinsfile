@@ -52,6 +52,15 @@ pipeline {
             }
         }
 
+        stage('Dependency Checks') {
+            steps {
+                dir('app') {
+                    dependencyCheck additionalArguments: '--scan .', odcInstallation: 'DependencyCheck'
+                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                }
+            }
+        }
+
         stage('Run Tests') {
             steps {
                 dir('app') {

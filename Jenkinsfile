@@ -54,7 +54,7 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 timeout(time: 10, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true, webhookSecretId: 'jenkins-webhook'
+                    waitForQualityGate abortPipeline: true, webhookSecretId: 'sonar-webhook-secret'
                 }
             }
         }

@@ -84,7 +84,7 @@ pipeline {
                 dir('app') {
                     sh '''
                         . venv/bin/activate
-                        pylint main.py > pylint main.py || true
+                        pylint main.py > pylint-report.txt || true
                         cat pylint-report.txt
                     '''
                 }

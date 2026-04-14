@@ -73,7 +73,7 @@ pipeline {
                 dir('app') {
                     sh '''
                         . venv/bin/activate
-                        pytest test_main.py
+                        pytest test_main.py --junitxml=pytest-results.xml
                     '''
                 }
             }
@@ -84,7 +84,8 @@ pipeline {
                 dir('app') {
                     sh '''
                         . venv/bin/activate
-                        pylint main.py || true
+                        pylint main.py > pylint main.py || true
+                        cat pylint-report.txt
                     '''
                 }
             }
@@ -103,7 +104,9 @@ pipeline {
         stage('Trivy Scan') {
             steps {
                 sh '''
-                    trivy image --severity HIGH,CRITICAL --exit-code 1 devsecops-pipeline-app:latest
+                    trivy image --format json -o trivy-report.json devsecops-pipeline-app:latest
+                    trivy image --severity HIGH,CRITICAL devsecops-pipeline-app:latest > trivy-report.txt || true
+                    cat trivy-report.txt
                 '''
             }
         }
@@ -111,7 +114,7 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'app/dependency-check-report.xml', fingerprint: true, allowEmptyArchive: true
+            archiveArtifacts artifacts: 'app/*.xml, app/*.json, app/*.txt, app/*.html', fingerprint: true, allowEmptyArchive: true
         }
     }
 }

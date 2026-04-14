@@ -1,9 +1,9 @@
 pipeline {
     agent any
 
-    stages{
+    stages {
         stage('Checkout') {
-            steps{
+            steps {
                 checkout scm
             }
         }
@@ -17,7 +17,6 @@ pipeline {
                         ls -la
                     '''
                 }
-
             }
         }
 
@@ -52,10 +51,18 @@ pipeline {
             }
         }
 
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true, webhookSecretId: 'sonar-secret'
+                }
+            }
+        }
+
         stage('Dependency Checks') {
             steps {
                 dir('app') {
-                    dependencyCheck additionalArguments: '--scan .', odcInstallation: 'DependencyCheck'
+                    dependencyCheck additionalArguments: '--scan . --format XML', odcInstallation: 'DependencyCheck'
                     dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
                 }
             }
@@ -82,6 +89,7 @@ pipeline {
                 }
             }
         }
+
         stage('Docker Build') {
             steps {
                 dir('app') {
@@ -91,6 +99,7 @@ pipeline {
                 }
             }
         }
+
         stage('Trivy Scan') {
             steps {
                 sh '''
@@ -98,12 +107,11 @@ pipeline {
                 '''
             }
         }
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 10, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true, webhookSecretId: 'sonar-secret'
-                }
-            }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'app/dependency-check-report.xml', fingerprint: true, allowEmptyArchive: true
         }
     }
 }

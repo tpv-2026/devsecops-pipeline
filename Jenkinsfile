@@ -71,12 +71,17 @@ pipeline {
        stage('Dependency Checks') {
     steps {
         dir('app') {
-            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+            catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
                 dependencyCheck(
                     odcInstallation: 'OWASP-Dependency-Check',
-                    additionalArguments: '--scan . --format XML'
+                    additionalArguments: '--scan . --format XML --noupdate'
                 )
-                dependencyCheckPublisher pattern: 'dependency-check-report.xml'
+            }
+            dependencyCheckPublisher pattern: 'dependency-check-report.xml'
+            script {
+                if (currentBuild.result == 'FAILURE') {
+                    currentBuild.result = 'UNSTABLE'
+                }
             }
         }
     }

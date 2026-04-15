@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevSecOps Pipeline Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>DevSecOps Pipeline Dashboard</h1>
+        <p>Pipeline report viewer for security, testing, and code quality results.</p>
+    </header>
+
+    <main class="dashboard">
+
+        <section class="card">
+            <h2>OWASP Dependency Check</h2>
+            <pre>{{ reports.dependency_check }}</pre>
+        </section>
+
+        <section class="card">
+            <h2>Pylint Report</h2>
+            <pre>{{ reports.lint_report }}</pre>
+        </section>
+
+        <section class="card">
+            <h2>Pytest Results</h2>
+            <pre>{{ reports.test_report }}</pre>
+        </section>
+
+        <section class="card">
+            <h2>Trivy Scan</h2>
+            <pre>{{ reports.trivy_report }}</pre>
+        </section>
+
+    </main>
+</body>
+</html>

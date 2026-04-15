@@ -7,7 +7,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-COPY app/main.py .
-COPY app/test_main.py .
+COPY main.py .
+COPY test_main.py .
 
 CMD ["python", "main.py"]

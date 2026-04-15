@@ -68,16 +68,15 @@ pipeline {
             }
         }
 
-        stage('Dependency Checks') {
+       stage('Dependency Checks') {
     steps {
         dir('app') {
-            script {
-                try {
-                    dependencyCheck additionalArguments: '--scan . --format XML', odcInstallation: 'OWASP-Dependency-Check'
-                    dependencyCheckPublisher pattern: 'dependency-check-report.xml'
-                } catch (Exception e) {
-                    echo "Dependency-Check failed, continuing pipeline: ${e}"
-                }
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                dependencyCheck(
+                    odcInstallation: 'OWASP-Dependency-Check',
+                    additionalArguments: '--scan . --format XML'
+                )
+                dependencyCheckPublisher pattern: 'dependency-check-report.xml'
             }
         }
     }

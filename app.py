@@ -1,134 +1,71 @@
 from flask import Flask, render_template
 import os
-import json
 import xml.etree.ElementTree as ET
 
 app = Flask(__name__)
 
-REPORTS_DIR = "reports"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+REPORTS_DIR = os.path.join(BASE_DIR, "app")
 
 
-def file_exists(filename: str) -> bool:
-    return os.path.exists(os.path.join(REPORTS_DIR, filename))
+def read_pytest_report():
+    pytest_file = os.path.join(REPORTS_DIR, "pytest-results.xml")
 
-
-def load_pytest_results():
-    filepath = os.path.join(REPORTS_DIR, "pytest-results.xml")
-    if not os.path.exists(filepath):
-        return {"status": "Not found", "tests": 0, "failures": 0, "errors": 0}
+    if not os.path.exists(pytest_file):
+        return None
 
     try:
-        tree = ET.parse(filepath)
+        tree = ET.parse(pytest_file)
         root = tree.getroot()
 
-        return {
-            "status": "Loaded",
-            "tests": int(root.attrib.get("tests", 0)),
-            "failures": int(root.attrib.get("failures", 0)),
-            "errors": int(root.attrib.get("errors", 0)),
-        }
-    except Exception as e:
-        return {"status": f"Error: {e}", "tests": 0, "failures": 0, "errors": 0}
-
-
-def load_pylint_results():
-    filepath = os.path.join(REPORTS_DIR, "pylint-report.txt")
-    if not os.path.exists(filepath):
-        return {"status": "Not found", "score": "N/A", "issues": []}
-
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            content = f.read()
-
-        score = "N/A"
-        for line in content.splitlines():
-            if "Your code has been rated at" in line:
-                score = line.strip()
-                break
-
-        issues = [
-            line.strip()
-            for line in content.splitlines()
-            if ":" in line and ("C0" in line or "W0" in line or "E0" in line or "R0" in line)
-        ]
-
-        return {"status": "Loaded", "score": score, "issues": issues[:10]}
-    except Exception as e:
-        return {"status": f"Error: {e}", "score": "N/A", "issues": []}
-
-
-def load_trivy_results():
-    filepath = os.path.join(REPORTS_DIR, "trivy-report.json")
-    if not os.path.exists(filepath):
-        return {"status": "Not found", "total": 0, "high": 0, "critical": 0}
-
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        high = 0
-        critical = 0
-        total = 0
-
-        for result in data.get("Results", []):
-            vulnerabilities = result.get("Vulnerabilities", [])
-            total += len(vulnerabilities)
-            for vuln in vulnerabilities:
-                severity = vuln.get("Severity", "").upper()
-                if severity == "HIGH":
-                    high += 1
-                elif severity == "CRITICAL":
-                    critical += 1
+        total = int(root.attrib.get("tests", 0))
+        failures = int(root.attrib.get("failures", 0))
+        errors = int(root.attrib.get("errors", 0))
+        skipped = int(root.attrib.get("skipped", 0))
+        passed = total - failures - errors - skipped
 
         return {
-            "status": "Loaded",
             "total": total,
-            "high": high,
-            "critical": critical,
+            "passed": passed,
+            "failures": failures,
+            "errors": errors,
+            "skipped": skipped
         }
     except Exception as e:
-        return {"status": f"Error: {e}", "total": 0, "high": 0, "critical": 0}
+        return {
+            "total": 0,
+            "passed": 0,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "message": f"Error reading pytest report: {e}"
+        }
 
 
-def load_dependency_check_results():
-    filepath = os.path.join(REPORTS_DIR, "dependency-check-report.xml")
-    if not os.path.exists(filepath):
-        return {"status": "Not found", "dependencies": 0, "vulnerable_dependencies": 0}
+def read_text_report(filename, default_message="No report found."):
+    file_path = os.path.join(REPORTS_DIR, filename)
+
+    if not os.path.exists(file_path):
+        return default_message
 
     try:
-        tree = ET.parse(filepath)
-        root = tree.getroot()
-
-        dependencies = root.findall(".//dependency")
-        vulnerable_dependencies = 0
-
-        for dep in dependencies:
-            vulnerabilities = dep.findall(".//vulnerability")
-            if vulnerabilities:
-                vulnerable_dependencies += 1
-
-        return {
-            "status": "Loaded",
-            "dependencies": len(dependencies),
-            "vulnerable_dependencies": vulnerable_dependencies,
-        }
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as file:
+            return file.read()
     except Exception as e:
-        return {"status": f"Error: {e}", "dependencies": 0, "vulnerable_dependencies": 0}
+        return f"Error reading {filename}: {e}"
 
 
 @app.route("/")
 def dashboard():
-    pytest_results = load_pytest_results()
-    pylint_results = load_pylint_results()
-    trivy_results = load_trivy_results()
-    dependency_results = load_dependency_check_results()
+    pytest_data = read_pytest_report()
+    pylint_data = read_text_report("pylint-report.txt")
+    trivy_data = read_text_report("trivy-report.txt")
 
     return render_template(
         "index.html",
-        pytest_results=pytest_results,
-        pylint_results=pylint_results,
-        trivy_results=trivy_results,
-        dependency_results=dependency_results,
+        pytest=pytest_data,
+        pylint=pylint_data,
+        trivy=trivy_data
     )
 
 

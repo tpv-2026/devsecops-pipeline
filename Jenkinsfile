@@ -1,6 +1,15 @@
 pipeline {
     agent any
 
+    environment {
+        SONARQUBE_ENV = 'SonarQube'
+        SONAR_SCANNER = tool 'SonarScanner'
+    }
+
+    options {
+        timestamps()
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -10,40 +19,42 @@ pipeline {
 
         stage('Check Python') {
             steps {
-                dir('app') {
-                    sh '''
-                        python3 --version
-                        pwd
-                        ls -la
-                    '''
-                }
+                sh '''
+                    python3 --version
+                    pwd
+                    ls -la
+                    echo "----- ROOT CONTENT -----"
+                    ls -la .
+                    echo "----- APP CONTENT -----"
+                    ls -la app
+                '''
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                    sh '''
-                        python3 -m venv venv
-                        . venv/bin/activate
-                        python -m pip install -r requirements.txt
-                    '''
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    python -m pip install --upgrade pip
+                    python -m pip install -r requirements.txt
+                '''
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
                 dir('app') {
-                    script {
-                        def scannerHome = tool 'SonarScanner'
-                        withSonarQubeEnv('SonarQube') {
-                            sh """
-                                ${scannerHome}/bin/sonar-scanner \
-                                -Dsonar.projectKey=devsecops-pipeline \
-                                -Dsonar.projectName=DevSecOps_Pipeline \
-                                -Dsonar.sources=. \
-                                -Dsonar.python.version=3.13
-                            """
-                        }
+                    withSonarQubeEnv("${SONARQUBE_ENV}") {
+                        sh '''
+                            ${SONAR_SCANNER}/bin/sonar-scanner \
+                              -Dsonar.projectKey=devsecops-pipeline \
+                              -Dsonar.projectName=DevSecOps_Pipeline \
+                              -Dsonar.sources=. \
+                              -Dsonar.python.version=3.13 \
+                              -Dsonar.tests=. \
+                              -Dsonar.test.inclusions=test_*.py
+                        '''
                     }
                 }
             }
@@ -52,7 +63,7 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 timeout(time: 10, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true, webhookSecretId: 'sonar-webhook-secret'
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
@@ -60,8 +71,8 @@ pipeline {
         stage('Dependency Checks') {
             steps {
                 dir('app') {
-                    dependencyCheck additionalArguments: '--scan . --format XML', odcInstallation: 'DependencyCheck'
-                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                    dependencyCheck odcInstallation: 'OWASP-Dependency-Check', additionalArguments: '--scan . --format XML --out .'
+                    dependencyCheckPublisher pattern: 'dependency-check-report.xml'
                 }
             }
         }
@@ -70,7 +81,7 @@ pipeline {
             steps {
                 dir('app') {
                     sh '''
-                        . venv/bin/activate
+                        . ../venv/bin/activate
                         pytest test_main.py --junitxml=pytest-results.xml
                     '''
                 }
@@ -81,7 +92,7 @@ pipeline {
             steps {
                 dir('app') {
                     sh '''
-                        . venv/bin/activate
+                        . ../venv/bin/activate
                         pylint main.py > pylint-report.txt || true
                         cat pylint-report.txt
                     '''
@@ -91,26 +102,30 @@ pipeline {
 
         stage('Docker Build') {
             steps {
+                dir('app') {
                     sh '''
                         docker build -t devsecops-pipeline-app:latest .
                     '''
+                }
             }
         }
 
         stage('Trivy Scan') {
             steps {
-                sh '''
-                    trivy image --format json -o trivy-report.json devsecops-pipeline-app:latest
-                    trivy image --severity HIGH,CRITICAL devsecops-pipeline-app:latest > trivy-report.txt || true
-                    cat trivy-report.txt
-                '''
+                dir('app') {
+                    sh '''
+                        trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 0 devsecops-pipeline-app:latest > trivy-report.txt
+                        cat trivy-report.txt
+                    '''
+                }
             }
         }
     }
 
     post {
         always {
-            archiveArtifacts artifacts: 'app/*.xml, app/*.json, app/*.txt, app/*.html', fingerprint: true, allowEmptyArchive: true
+            archiveArtifacts artifacts: 'app/*.xml, app/*.txt', fingerprint: true
+            junit 'app/pytest-results.xml'
         }
     }
 }

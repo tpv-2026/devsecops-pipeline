@@ -7,33 +7,31 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <header>
+    <div class="container">
         <h1>DevSecOps Pipeline Dashboard</h1>
-        <p>Pipeline report viewer for security, testing, and code quality results.</p>
-    </header>
 
-    <main class="dashboard">
-
-        <section class="card">
-            <h2>OWASP Dependency Check</h2>
-            <pre>{{ reports.dependency_check }}</pre>
-        </section>
-
-        <section class="card">
-            <h2>Pylint Report</h2>
-            <pre>{{ reports.lint_report }}</pre>
-        </section>
-
-        <section class="card">
+        <div class="card">
             <h2>Pytest Results</h2>
-            <pre>{{ reports.test_report }}</pre>
-        </section>
+            {% if pytest %}
+                <p>Total Tests: {{ pytest.total }}</p>
+                <p>Passed: <span class="success">{{ pytest.passed }}</span></p>
+                <p>Failures: <span class="danger">{{ pytest.failures }}</span></p>
+                <p>Errors: <span class="danger">{{ pytest.errors }}</span></p>
+                <p>Skipped: <span class="warning">{{ pytest.skipped }}</span></p>
+            {% else %}
+                <p>No test results found.</p>
+            {% endif %}
+        </div>
 
-        <section class="card">
-            <h2>Trivy Scan</h2>
-            <pre>{{ reports.trivy_report }}</pre>
-        </section>
+        <div class="card">
+            <h2>Pylint Report</h2>
+            <pre>{{ pylint }}</pre>
+        </div>
 
-    </main>
+        <div class="card">
+            <h2>Trivy Report</h2>
+            <pre>{{ trivy }}</pre>
+        </div>
+    </div>
 </body>
 </html>

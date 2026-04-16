@@ -4,9 +4,11 @@ import xml.etree.ElementTree as ET
 
 app = Flask(__name__)
 
+REPORTS_DIR = "reports"
+
 
 def parse_pytest_results():
-    file_path = os.path.join("app", "pytest-results.xml")
+    file_path = os.path.join(REPORTS_DIR, "pytest-results.xml")
 
     if not os.path.exists(file_path):
         return None
@@ -50,7 +52,7 @@ def read_text_file(file_path, default_message):
 
 
 def get_dependency_check_report():
-    file_path = os.path.join("app", "dependency-check-report.xml")
+    file_path = os.path.join(REPORTS_DIR, "dependency-check-report.xml")
 
     if not os.path.exists(file_path):
         return "No Dependency Check report found."
@@ -64,8 +66,7 @@ def get_dependency_check_report():
         if not vulnerabilities:
             return "No vulnerabilities found."
 
-        summary = f"Vulnerabilities found: {len(vulnerabilities)}"
-        return summary
+        return f"Vulnerabilities found: {len(vulnerabilities)}"
 
     except Exception:
         return "Error reading Dependency Check report."
@@ -75,11 +76,11 @@ def get_dependency_check_report():
 def dashboard():
     pytest_data = parse_pytest_results()
     pylint_data = read_text_file(
-        os.path.join("app", "pylint-report.txt"),
+        os.path.join(REPORTS_DIR, "pylint-report.txt"),
         "No pylint report found."
     )
     trivy_data = read_text_file(
-        os.path.join("app", "trivy-report.txt"),
+        os.path.join(REPORTS_DIR, "trivy-report.txt"),
         "No Trivy report found."
     )
     dependency_data = get_dependency_check_report()

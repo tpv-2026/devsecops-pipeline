@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        sonarQubeScanner 'SonarQube Scanner installations'
+        sonarRunner 'SonarQube Scanner installations'
     }
 
     options {

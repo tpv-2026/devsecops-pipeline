@@ -67,7 +67,26 @@ def dashboard():
         pylint=pylint_data,
         trivy=trivy_data
     )
+def get_dependency_check_report():
+    file_path = os.path.join("app", "dependency-check-report.xml")
 
+    if not os.path.exists(file_path):
+        return "No Dependency Check report found."
+
+    try:
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+
+        vulnerabilities = root.findall(".//vulnerability")
+
+        if not vulnerabilities:
+            return "No vulnerabilities found."
+
+        summary = f"Vulnerabilities found: {len(vulnerabilities)}"
+        return summary
+
+    except Exception:
+        return "Error reading Dependency Check report"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

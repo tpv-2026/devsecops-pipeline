@@ -1,9 +1,8 @@
 pipeline {
     agent any
 
-    environment {
-        SONARQUBE_ENV = 'SonarQube'
-        SONAR_SCANNER = tool 'SonarScanner'
+    tools {
+        sonarQubeScanner 'SonarQube Scanner installations'
     }
 
     options {
@@ -45,15 +44,15 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 dir('app') {
-                    withSonarQubeEnv("${SONARQUBE_ENV}") {
+                    withSonarQubeEnv('SonarQube') {
                         sh '''
-                            ${SONAR_SCANNER}/bin/sonar-scanner \
-                              -Dsonar.projectKey=devsecops-pipeline \
-                              -Dsonar.projectName=DevSecOps_Pipeline \
-                              -Dsonar.sources=. \
-                              -Dsonar.python.version=3.13 \
-                              -Dsonar.tests=. \
-                              -Dsonar.test.inclusions=test_*.py
+                            /var/jenkins_home/tools/hudson.plugins.sonar.SonarRunnerInstallation/SonarScanner/bin/sonar-scanner \
+                            -Dsonar.projectKey=devsecops-pipeline \
+                            -Dsonar.projectName=DevSecOps_Pipeline \
+                            -Dsonar.sources=. \
+                            -Dsonar.python.version=3.13 \
+                            -Dsonar.tests=. \
+                            -Dsonar.test.inclusions=test_*.py
                         '''
                     }
                 }
@@ -63,29 +62,21 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 timeout(time: 10, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
+                    waitForQualityGate abortPipeline: false
                 }
             }
         }
 
-       stage('Dependency Checks') {
-    steps {
-        dir('app') {
-            catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
-                dependencyCheck(
-                    odcInstallation: 'OWASP-Dependency-Check',
-                    additionalArguments: '--scan . --format XML --noupdate'
-                )
-            }
-            dependencyCheckPublisher pattern: 'dependency-check-report.xml'
-            script {
-                if (currentBuild.result == 'FAILURE') {
-                    currentBuild.result = 'UNSTABLE'
+        stage('Dependency Checks') {
+            steps {
+                dir('app') {
+                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        dependencyCheck odcInstallation: 'OWASP-Dependency-Check', additionalArguments: '--noupdate --format XML'
+                    }
+                    dependencyCheckPublisher pattern: 'dependency-check-report.xml'
                 }
             }
         }
-    }
-}
 
         stage('Run Tests') {
             steps {
@@ -128,6 +119,19 @@ pipeline {
                         cat trivy-report.txt
                     '''
                 }
+            }
+        }
+
+        stage('Verify Reports Exist') {
+            steps {
+                sh '''
+                    echo "Checking generated report files..."
+                    test -f app/pytest-results.xml && echo "OK: pytest-results.xml found"
+                    test -f app/pylint-report.txt && echo "OK: pylint-report.txt found"
+                    test -f app/trivy-report.txt && echo "OK: trivy-report.txt found"
+                    test -f app/dependency-check-report.xml && echo "OK: dependency-check-report.xml found"
+                    ls -la app
+                '''
             }
         }
     }

@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        sonarRunner 'SonarQube Scanner installations'
-    }
-
     options {
         timestamps()
     }

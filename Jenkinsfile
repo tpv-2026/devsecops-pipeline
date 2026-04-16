@@ -130,6 +130,24 @@ pipeline {
                 '''
             }
         }
+
+         stage('Copy Reports to Dashboard Folder') {
+            steps {
+                 sh '''
+                    echo "Copying reports to local reports folder..."
+
+                    mkdir -p reports
+
+                    cp app/pytest-results.xml reports/ || true
+                    cp app/pylint-report.txt reports/ || true
+                    cp app/trivy-report.txt reports/ || true
+                    cp app/dependency-check-report.xml reports/ || true
+
+                    echo "Reports folder contents:"
+                    ls -la reports
+        '''
+    }
+}
     }
 
     post {

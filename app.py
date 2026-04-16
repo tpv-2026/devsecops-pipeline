@@ -28,7 +28,7 @@ def parse_pytest_results():
             "errors": errors,
             "skipped": skipped
         }
-    except Exception as e:
+    except Exception:
         return {
             "total": 0,
             "passed": 0,
@@ -49,24 +49,6 @@ def read_text_file(file_path, default_message):
         return default_message
 
 
-@app.route("/")
-def dashboard():
-    pytest_data = parse_pytest_results()
-    pylint_data = read_text_file(
-        os.path.join("app", "pylint-report.txt"),
-        "No pylint report found."
-    )
-    trivy_data = read_text_file(
-        os.path.join("app", "trivy-report.txt"),
-        "No Trivy report found."
-    )
-
-    return render_template(
-        "index.html",
-        pytest=pytest_data,
-        pylint=pylint_data,
-        trivy=trivy_data
-    )
 def get_dependency_check_report():
     file_path = os.path.join("app", "dependency-check-report.xml")
 
@@ -86,14 +68,20 @@ def get_dependency_check_report():
         return summary
 
     except Exception:
-        return "Error reading Dependency Check report"
+        return "Error reading Dependency Check report."
 
 
 @app.route("/")
 def dashboard():
     pytest_data = parse_pytest_results()
-    pylint_data = read_text_file("app/pylint-report.txt", "No pylint report found.")
-    trivy_data = read_text_file("app/trivy-report.txt", "No Trivy report found.")
+    pylint_data = read_text_file(
+        os.path.join("app", "pylint-report.txt"),
+        "No pylint report found."
+    )
+    trivy_data = read_text_file(
+        os.path.join("app", "trivy-report.txt"),
+        "No Trivy report found."
+    )
     dependency_data = get_dependency_check_report()
 
     return render_template(
@@ -103,6 +91,7 @@ def dashboard():
         trivy=trivy_data,
         dependency=dependency_data
     )
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

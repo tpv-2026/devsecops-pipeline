@@ -148,6 +148,16 @@ pipeline {
         '''
     }
 }
+         stage('Show Reports Folder') {
+    steps {
+        sh '''
+            echo "ROOT REPORTS:"
+            ls -la reports || true
+            echo "APP REPORTS:"
+            ls -la app || true
+        '''
+    }
+}
     }
 
     post {

@@ -8,32 +8,48 @@
 </head>
 <body>
     <div class="container">
-        <h1>DevSecOps Pipeline Dashboard</h1>
+        <h1>🚀 DevSecOps Pipeline Dashboard</h1>
 
-        <div class="card">
-            <h2>Pytest Results</h2>
-            {% if pytest %}
-                <p>Total Tests: {{ pytest.total }}</p>
-                <p>Passed: <span class="success">{{ pytest.passed }}</span></p>
-                <p>Failures: <span class="danger">{{ pytest.failures }}</span></p>
-                <p>Errors: <span class="danger">{{ pytest.errors }}</span></p>
-                <p>Skipped: <span class="warning">{{ pytest.skipped }}</span></p>
-            {% else %}
-                <p>No test results found.</p>
-            {% endif %}
-        </div>
-        <div class="card">
-            <h2>📦 Dependency Check</h2>
-            <pre>{{ dependency }}</pre>
-        </div>
-        <div class="card">
-            <h2>Pylint Report</h2>
-            <pre>{{ pylint }}</pre>
+        <!-- Pipeline Status -->
+        <div class="card status-card">
+            <h2>🚦 Pipeline Status</h2>
+            <p class="success">SUCCESS</p>
         </div>
 
-        <div class="card">
-            <h2>Trivy Report</h2>
-            <pre>{{ trivy }}</pre>
+        <div class="grid">
+
+            <!-- Pytest -->
+            <div class="card">
+                <h2>🧪 Pytest Results</h2>
+                {% if pytest %}
+                    <p>Total Tests: {{ pytest.total }}</p>
+                    <p>Passed: <span class="success">{{ pytest.passed }}</span></p>
+                    <p>Failures: <span class="danger">{{ pytest.failures }}</span></p>
+                    <p>Errors: <span class="danger">{{ pytest.errors }}</span></p>
+                    <p>Skipped: <span class="warning">{{ pytest.skipped }}</span></p>
+                {% else %}
+                    <p>No test results found.</p>
+                {% endif %}
+            </div>
+
+            <!-- Dependency Check -->
+            <div class="card">
+                <h2>📦 Dependency Check</h2>
+                <pre>{{ dependency }}</pre>
+            </div>
+
+            <!-- Pylint -->
+            <div class="card">
+                <h2>🧹 Pylint Report</h2>
+                <pre>{{ pylint }}</pre>
+            </div>
+
+            <!-- Trivy -->
+            <div class="card">
+                <h2>🐳 Trivy Report</h2>
+                <pre>{{ trivy }}</pre>
+            </div>
+
         </div>
     </div>
 </body>

@@ -5,32 +5,59 @@ body {
     color: white;
 }
 
+/* Container */
 .container {
     width: 90%;
     max-width: 1200px;
     margin: 30px auto;
 }
 
+/* Title */
 h1 {
     text-align: center;
     margin-bottom: 30px;
     font-size: 3rem;
+    background: linear-gradient(90deg, #38bdf8, #22c55e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
+/* Grid layout */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+/* Cards */
 .card {
     background: #1e2c44;
     border: 1px solid #2d4d7a;
     border-radius: 20px;
     padding: 25px;
-    margin-bottom: 25px;
     box-shadow: 0 0 18px rgba(0, 140, 255, 0.15);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Hover effect */
+.card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 25px rgba(56, 189, 248, 0.4);
+}
+
+/* Status card special */
+.status-card {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+/* Headings */
 h2 {
     color: #38bdf8;
     margin-top: 0;
 }
 
+/* Code blocks */
 pre {
     background: #020b1c;
     padding: 16px;
@@ -41,9 +68,11 @@ pre {
     color: #f8fafc;
 }
 
+/* Status colors */
 .success {
     color: #22c55e;
     font-weight: bold;
+    font-size: 1.2rem;
 }
 
 .warning {

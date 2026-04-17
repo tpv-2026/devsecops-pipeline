@@ -55,6 +55,7 @@ def parse_pytest_results():
 @app.route("/")
 def dashboard():
     pytest_data = parse_pytest_results()
+    print("Pytest data: ", pytest_data)
 
     return render_template(
         "index.html",

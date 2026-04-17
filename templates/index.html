@@ -19,14 +19,15 @@
         <div class="grid">
 
             <!-- Pytest -->
-            <div class="card">
-                <h2>🧪 Pytest Results</h2>
+            <div>
+                <h2>Pytest Results</h2>
+
                 {% if pytest %}
-                    <p>Total Tests: {{ pytest.total }}</p>
-                    <p>Passed: <span class="success">{{ pytest.passed }}</span></p>
-                    <p>Failures: <span class="danger">{{ pytest.failures }}</span></p>
-                    <p>Errors: <span class="danger">{{ pytest.errors }}</span></p>
-                    <p>Skipped: <span class="warning">{{ pytest.skipped }}</span></p>
+                    <p>Total: {{ pytest.total }}</p>
+                    <p>Passed: {{ pytest.passed }}</p>
+                    <p>Failures: {{ pytest.failures }}</p>
+                    <p>Errors: {{ pytest.errors }}</p>
+                    <p>Skipped: {{ pytest.skipped }}</p>
                 {% else %}
                     <p>No test results found.</p>
                 {% endif %}

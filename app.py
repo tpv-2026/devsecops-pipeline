@@ -4,12 +4,20 @@ import requests
 
 app = Flask(__name__)
 
-PYTEST_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/49/artifact/app/pytest-results.xml"
+JENKINS_USER = "admin"
+JENKINS_TOKEN = "11d15cde2442c073cb6ed0cf79a939eab9"
+
+PYTEST_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/lastSuccessfulBuild/artifact/app/pytest-results.xml"
 
 
 def fetch_xml_from_jenkins(url):
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(
+            url,
+            auth=(JENKINS_USER, JENKINS_TOKEN),
+            timeout=10
+        )
+        print(f"Jenkins response status: {response.status_code}")
         response.raise_for_status()
         return response.text
     except requests.RequestException as e:

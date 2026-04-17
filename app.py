@@ -1,21 +1,30 @@
 from flask import Flask, render_template
-import os
 import xml.etree.ElementTree as ET
+import requests
 
 app = Flask(__name__)
 
-REPORTS_DIR = "app"
+PYTEST_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/49/artifact/app/dependency-check-report.xml/*view*/"
+
+
+def fetch_xml_from_jenkins(url):
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.text
+    except requests.RequestException as e:
+        print(f"Error fetching XML from Jenkins: {e}")
+        return None
 
 
 def parse_pytest_results():
-    file_path = os.path.join(REPORTS_DIR, "pytest-results.xml")
+    xml_data = fetch_xml_from_jenkins(PYTEST_REPORT_URL)
 
-    if not os.path.exists(file_path):
+    if not xml_data:
         return None
 
     try:
-        tree = ET.parse(file_path)
-        root = tree.getroot()
+        root = ET.fromstring(xml_data)
 
         total = int(root.attrib.get("tests", 0))
         failures = int(root.attrib.get("failures", 0))
@@ -30,67 +39,21 @@ def parse_pytest_results():
             "errors": errors,
             "skipped": skipped
         }
-    except Exception:
-        return {
-            "total": 0,
-            "passed": 0,
-            "failures": 0,
-            "errors": 0,
-            "skipped": 0
-        }
-
-
-def read_text_file(file_path, default_message):
-    if not os.path.exists(file_path):
-        return default_message
-
-    try:
-        with open(file_path, "r", encoding="utf-8") as file:
-            return file.read()
-    except Exception:
-        return default_message
-
-
-def get_dependency_check_report():
-    file_path = os.path.join(REPORTS_DIR, "dependency-check-report.xml")
-
-    if not os.path.exists(file_path):
-        return "No Dependency Check report found."
-
-    try:
-        tree = ET.parse(file_path)
-        root = tree.getroot()
-
-        vulnerabilities = root.findall(".//vulnerability")
-
-        if not vulnerabilities:
-            return "No vulnerabilities found."
-
-        return f"Vulnerabilities found: {len(vulnerabilities)}"
-
-    except Exception:
-        return "Error reading Dependency Check report."
+    except Exception as e:
+        print(f"Error parsing pytest XML: {e}")
+        return None
 
 
 @app.route("/")
 def dashboard():
     pytest_data = parse_pytest_results()
-    pylint_data = read_text_file(
-        os.path.join(REPORTS_DIR, "pylint-report.txt"),
-        "No pylint report found."
-    )
-    trivy_data = read_text_file(
-        os.path.join(REPORTS_DIR, "trivy-report.txt"),
-        "No Trivy report found."
-    )
-    dependency_data = get_dependency_check_report()
 
     return render_template(
         "index.html",
         pytest=pytest_data,
-        pylint=pylint_data,
-        trivy=trivy_data,
-        dependency=dependency_data
+        pylint="Phase 1: not connected yet.",
+        trivy="Phase 1: not connected yet.",
+        dependency="Phase 1: not connected yet."
     )
 
 

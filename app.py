@@ -4,7 +4,7 @@ import requests
 
 app = Flask(__name__)
 
-PYTEST_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/49/artifact/app/dependency-check-report.xml/*view*/"
+PYTEST_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/49/artifact/app/pytest-results.xml"
 
 
 def fetch_xml_from_jenkins(url):

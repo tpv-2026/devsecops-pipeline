@@ -27,12 +27,16 @@ def fetch_xml_from_jenkins(url):
 
 def parse_pytest_results():
     xml_data = fetch_xml_from_jenkins(PYTEST_REPORT_URL)
+    print(xml_data)
 
     if not xml_data:
         return None
 
     try:
         root = ET.fromstring(xml_data)
+
+        if root.tag == "testsuite":
+            root = root.find("testsuite")
 
         total = int(root.attrib.get("tests", 0))
         failures = int(root.attrib.get("failures", 0))

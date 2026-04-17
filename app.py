@@ -7,26 +7,29 @@ app = Flask(__name__)
 JENKINS_USER = "admin"
 JENKINS_TOKEN = "11d15cde2442c073cb6ed0cf79a939eab9"
 
-PYTEST_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/lastSuccessfulBuild/artifact/app/pytest-results.xml"
+PYTEST_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/54/artifact/app/pytest-results.xml"
+PYLINT_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/54/artifact/app/pylint-report.txt"
+TRIVY_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/54/artifact/app/trivy-report.txt"
+DEPENDENCY_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/54/artifact/app/dependency-check-report.xml"
 
 
-def fetch_xml_from_jenkins(url):
+def fetch_from_jenkins(url):
     try:
         response = requests.get(
             url,
             auth=(JENKINS_USER, JENKINS_TOKEN),
             timeout=10
         )
-        print(f"Jenkins response status: {response.status_code}")
+        print(f"Jenkins response status for {url}: {response.status_code}")
         response.raise_for_status()
         return response.text
     except requests.RequestException as e:
-        print(f"Error fetching XML from Jenkins: {e}")
+        print(f"Error fetching from Jenkins: {e}")
         return None
 
 
 def parse_pytest_results():
-    xml_data = fetch_xml_from_jenkins(PYTEST_REPORT_URL)
+    xml_data = fetch_from_jenkins(PYTEST_REPORT_URL)
 
     if not xml_data:
         return None
@@ -34,13 +37,9 @@ def parse_pytest_results():
     try:
         root = ET.fromstring(xml_data)
 
-        if root.tag == "testsuites":
-            testsuite = root.find("testsuite")
-        else:
-            testsuite = root
-
+        testsuite = root.find("testsuite")
         if testsuite is None:
-            return None
+            testsuite = root
 
         total = int(testsuite.attrib.get("tests", 0))
         failures = int(testsuite.attrib.get("failures", 0))
@@ -48,7 +47,7 @@ def parse_pytest_results():
         skipped = int(testsuite.attrib.get("skipped", 0))
         passed = total - failures - errors - skipped
 
-        return {
+        pytest_data = {
             "total": total,
             "passed": passed,
             "failures": failures,
@@ -56,21 +55,56 @@ def parse_pytest_results():
             "skipped": skipped
         }
 
+        print("Pytest data:", pytest_data)
+        return pytest_data
+
     except Exception as e:
         print(f"Error parsing pytest XML: {e}")
         return None
 
+
+def fetch_text_report(url, default_message):
+    data = fetch_from_jenkins(url)
+    if not data:
+        return default_message
+    return data
+
+
+def parse_dependency_check_report():
+    xml_data = fetch_from_jenkins(DEPENDENCY_REPORT_URL)
+
+    if not xml_data:
+        return "No Dependency Check report found."
+
+    try:
+        root = ET.fromstring(xml_data)
+
+        dependencies = root.findall(".//dependency")
+        vulnerabilities = root.findall(".//vulnerability")
+
+        return (
+            f"Dependencies scanned: {len(dependencies)}\n"
+            f"Vulnerabilities found: {len(vulnerabilities)}"
+        )
+
+    except Exception as e:
+        print(f"Error parsing dependency-check XML: {e}")
+        return "Error reading Dependency Check report."
+
+
 @app.route("/")
 def dashboard():
     pytest_data = parse_pytest_results()
-    print("Pytest data: ", pytest_data)
+    pylint_data = fetch_text_report(PYLINT_REPORT_URL, "No pylint report found.")
+    trivy_data = fetch_text_report(TRIVY_REPORT_URL, "No Trivy report found.")
+    dependency_data = parse_dependency_check_report()
 
     return render_template(
         "index.html",
         pytest=pytest_data,
-        pylint="Phase 1: not connected yet.",
-        trivy="Phase 1: not connected yet.",
-        dependency="Phase 1: not connected yet."
+        pylint=pylint_data,
+        trivy=trivy_data,
+        dependency=dependency_data
     )
 
 

@@ -27,7 +27,6 @@ def fetch_xml_from_jenkins(url):
 
 def parse_pytest_results():
     xml_data = fetch_xml_from_jenkins(PYTEST_REPORT_URL)
-    print(xml_data)
 
     if not xml_data:
         return None
@@ -35,13 +34,18 @@ def parse_pytest_results():
     try:
         root = ET.fromstring(xml_data)
 
-        if root.tag == "testsuite":
-            root = root.find("testsuite")
+        if root.tag == "testsuites":
+            testsuite = root.find("testsuite")
+        else:
+            testsuite = root
 
-        total = int(root.attrib.get("tests", 0))
-        failures = int(root.attrib.get("failures", 0))
-        errors = int(root.attrib.get("errors", 0))
-        skipped = int(root.attrib.get("skipped", 0))
+        if testsuite is None:
+            return None
+
+        total = int(testsuite.attrib.get("tests", 0))
+        failures = int(testsuite.attrib.get("failures", 0))
+        errors = int(testsuite.attrib.get("errors", 0))
+        skipped = int(testsuite.attrib.get("skipped", 0))
         passed = total - failures - errors - skipped
 
         return {
@@ -51,10 +55,10 @@ def parse_pytest_results():
             "errors": errors,
             "skipped": skipped
         }
+
     except Exception as e:
         print(f"Error parsing pytest XML: {e}")
         return None
-
 
 @app.route("/")
 def dashboard():

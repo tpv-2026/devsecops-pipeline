@@ -1,4 +1,4 @@
 pytest
 pylint
-Flask==3.0.3
+Flask==1.0
 requests

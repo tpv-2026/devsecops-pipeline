@@ -10,44 +10,66 @@
     <div class="container">
         <h1>🚀 DevSecOps Pipeline Dashboard</h1>
 
-        <!-- Pipeline Status -->
         <div class="card status-card">
             <h2>🚦 Pipeline Status</h2>
             <p class="success">SUCCESS</p>
+            <p>The latest Jenkins build completed and generated security/quality reports.</p>
         </div>
 
         <div class="grid">
 
-            <!-- Pytest -->
             <div class="card">
-                <h2>Pytest Results</h2>
+                <h2>🧪 Pytest Results</h2>
+                <p><strong>Total:</strong> {{ pytest.total }}</p>
+                <p><strong>Passed:</strong> {{ pytest.passed }}</p>
+                <p><strong>Failures:</strong> {{ pytest.failures }}</p>
+                <p><strong>Errors:</strong> {{ pytest.errors }}</p>
+                <p><strong>Skipped:</strong> {{ pytest.skipped }}</p>
+                <p>{{ pytest.status }}</p>
 
-                {% if pytest %}
-                    <p>Total: {{ pytest.total }}</p>
-                    <p>Passed: {{ pytest.passed }}</p>
-                    <p>Failures: {{ pytest.failures }}</p>
-                    <p>Errors: {{ pytest.errors }}</p>
-                    <p>Skipped: {{ pytest.skipped }}</p>
+                <a class="button" href="/reports/pytest" target="_blank">
+                    Open Pytest XML Report
+                </a>
+            </div>
+
+            <div class="card">
+                <h2>📦 OWASP Dependency-Check</h2>
+                <p><strong>Status:</strong> {{ dependency.summary }}</p>
+                <p><strong>Dependencies scanned:</strong> {{ dependency.dependencies }}</p>
+                <p><strong>Vulnerabilities found:</strong> {{ dependency.vulnerabilities }}</p>
+
+                {% if dependency.vulnerable_dependencies %}
+                    <h3>Vulnerable Dependencies</h3>
+                    <ul>
+                        {% for item in dependency.vulnerable_dependencies %}
+                            <li>
+                                {{ item.file_name }} —
+                                {{ item.vulnerability_count }} vulnerability/vulnerabilities
+                            </li>
+                        {% endfor %}
+                    </ul>
                 {% else %}
-                    <p>No test results found.</p>
+                    <p>No vulnerable dependencies detected in the JSON summary.</p>
                 {% endif %}
+
+                <a class="button" href="/reports/dependency-check" target="_blank">
+                    Open Full Dependency-Check HTML Report
+                </a>
             </div>
 
-            <!-- Dependency Check -->
-            <div class="card">
-                <h2>📦 Dependency Check</h2>
-                <pre>{{ dependency }}</pre>
-            </div>
-
-            <!-- Pylint -->
             <div class="card">
                 <h2>🧹 Pylint Report</h2>
+                <a class="button" href="/reports/pylint" target="_blank">
+                    Open Full Pylint Report
+                </a>
                 <pre>{{ pylint }}</pre>
             </div>
 
-            <!-- Trivy -->
             <div class="card">
                 <h2>🐳 Trivy Report</h2>
+                <a class="button" href="/reports/trivy" target="_blank">
+                    Open Full Trivy Report
+                </a>
                 <pre>{{ trivy }}</pre>
             </div>
 

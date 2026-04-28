@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, Response
 import xml.etree.ElementTree as ET
 import requests
 import os
@@ -19,6 +19,7 @@ REPORTS = {
     "pylint": f"{JENKINS_BASE_URL}/pylint-report.txt",
     "trivy": f"{JENKINS_BASE_URL}/trivy-report.txt",
     "dependency_json": f"{JENKINS_BASE_URL}/dependency-check-report.json",
+    "dependency_html": f"{JENKINS_BASE_URL}/dependency-check-report.html",
 }
 
 
@@ -104,7 +105,8 @@ def parse_dependency_check_report():
         return {
             "summary": "No Dependency Check JSON report found.",
             "dependencies": 0,
-            "vulnerabilities": 0
+            "vulnerabilities": 0,
+            "status": "missing"
         }
 
     try:
@@ -112,14 +114,24 @@ def parse_dependency_check_report():
         dependencies = report.get("dependencies", [])
 
         vulnerability_count = 0
+        vulnerable_dependencies = []
 
         for dependency in dependencies:
-            vulnerability_count += len(dependency.get("vulnerabilities", []))
+            vulnerabilities = dependency.get("vulnerabilities", [])
+            vulnerability_count += len(vulnerabilities)
+
+            if vulnerabilities:
+                vulnerable_dependencies.append({
+                    "file_name": dependency.get("fileName", "Unknown dependency"),
+                    "vulnerability_count": len(vulnerabilities)
+                })
 
         return {
             "summary": "Dependency Check report loaded successfully.",
             "dependencies": len(dependencies),
-            "vulnerabilities": vulnerability_count
+            "vulnerabilities": vulnerability_count,
+            "vulnerable_dependencies": vulnerable_dependencies,
+            "status": "loaded"
         }
 
     except Exception as error:
@@ -128,7 +140,9 @@ def parse_dependency_check_report():
         return {
             "summary": "Dependency Check report exists but could not be parsed.",
             "dependencies": 0,
-            "vulnerabilities": 0
+            "vulnerabilities": 0,
+            "vulnerable_dependencies": [],
+            "status": "error"
         }
 
 
@@ -153,9 +167,51 @@ def dashboard():
         pytest=pytest_data,
         pylint=pylint_data,
         trivy=trivy_data,
-        dependency=dependency_data,
-        jenkins_base_url=JENKINS_BASE_URL
+        dependency=dependency_data
     )
+
+
+@app.route("/reports/dependency-check")
+def open_dependency_check_html():
+    html_data = fetch_from_jenkins(REPORTS["dependency_html"])
+
+    if not html_data:
+        return Response(
+            "Dependency Check HTML report was not found.",
+            mimetype="text/plain"
+        )
+
+    return Response(html_data, mimetype="text/html")
+
+
+@app.route("/reports/trivy")
+def open_trivy_report():
+    trivy_data = fetch_from_jenkins(REPORTS["trivy"])
+
+    if not trivy_data:
+        trivy_data = "Trivy report was not found."
+
+    return Response(trivy_data, mimetype="text/plain")
+
+
+@app.route("/reports/pylint")
+def open_pylint_report():
+    pylint_data = fetch_from_jenkins(REPORTS["pylint"])
+
+    if not pylint_data:
+        pylint_data = "Pylint report was not found."
+
+    return Response(pylint_data, mimetype="text/plain")
+
+
+@app.route("/reports/pytest")
+def open_pytest_report():
+    pytest_data = fetch_from_jenkins(REPORTS["pytest"])
+
+    if not pytest_data:
+        pytest_data = "Pytest XML report was not found."
+
+    return Response(pytest_data, mimetype="text/xml")
 
 
 if __name__ == "__main__":

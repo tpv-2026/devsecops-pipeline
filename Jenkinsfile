@@ -69,18 +69,21 @@ pipeline {
             steps {
                 dir('app') {
                     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                        dependencyCheck(
-                            odcInstallation: 'OWASP-Dependency-Check',
-                            additionalArguments: '''
-                                --project "DevSecOps-Pipeline"
-                                --scan .
-                                --format JSON
-                                --format HTML
-                                --out .
-                                --disableAssembly
-                                --disableOssIndex
-                            '''
-                        )
+                        withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
+                            dependencyCheck(
+                                odcInstallation: 'OWASP-Dependency-Check',
+                                additionalArguments: """
+                                    --project "DevSecOps-Pipeline"
+                                    --scan .
+                                    --format JSON
+                                    --format HTML
+                                    --out .
+                                    --disableAssembly
+                                    --disableOssIndex
+                                    --nvdApiKey ${NVD_API_KEY}
+                                """
+                            )
+                        }
 
                         sh '''
                             echo "Dependency Check output:"

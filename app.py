@@ -1,28 +1,36 @@
 from flask import Flask, render_template
 import xml.etree.ElementTree as ET
 import requests
+import os
 
 app = Flask(__name__)
 
-JENKINS_USER = "admin"
-JENKINS_TOKEN = "11d15cde2442c073cb6ed0cf79a939eab9"
+JENKINS_USER = os.getenv("JENKINS_USER")
+JENKINS_TOKEN = os.getenv("JENKINS_TOKEN")
 
-PYTEST_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/54/artifact/app/pytest-results.xml"
-PYLINT_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/54/artifact/app/pylint-report.txt"
-TRIVY_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/54/artifact/app/trivy-report.txt"
-DEPENDENCY_REPORT_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/54/artifact/app/dependency-check-report.xml"
+JENKINS_BASE_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/lastSuccessfulBuild/artifact/app"
+
+PYTEST_REPORT_URL = f"{JENKINS_BASE_URL}/pytest-results.xml"
+PYLINT_REPORT_URL = f"{JENKINS_BASE_URL}/pylint-report.txt"
+TRIVY_REPORT_URL = f"{JENKINS_BASE_URL}/trivy-report.txt"
+DEPENDENCY_REPORT_URL = f"{JENKINS_BASE_URL}/dependency-check-report.xml"
 
 
 def fetch_from_jenkins(url):
     try:
+        if not JENKINS_USER or not JENKINS_TOKEN:
+            return None
+
         response = requests.get(
             url,
             auth=(JENKINS_USER, JENKINS_TOKEN),
             timeout=10
         )
+
         print(f"Jenkins response status for {url}: {response.status_code}")
         response.raise_for_status()
         return response.text
+
     except requests.RequestException as e:
         print(f"Error fetching from Jenkins: {e}")
         return None
@@ -32,14 +40,17 @@ def parse_pytest_results():
     xml_data = fetch_from_jenkins(PYTEST_REPORT_URL)
 
     if not xml_data:
-        return None
+        return {
+            "total": 0,
+            "passed": 0,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+        }
 
     try:
         root = ET.fromstring(xml_data)
-
-        testsuite = root.find("testsuite")
-        if testsuite is None:
-            testsuite = root
+        testsuite = root.find("testsuite") or root
 
         total = int(testsuite.attrib.get("tests", 0))
         failures = int(testsuite.attrib.get("failures", 0))
@@ -47,7 +58,7 @@ def parse_pytest_results():
         skipped = int(testsuite.attrib.get("skipped", 0))
         passed = total - failures - errors - skipped
 
-        pytest_data = {
+        return {
             "total": total,
             "passed": passed,
             "failures": failures,
@@ -55,19 +66,20 @@ def parse_pytest_results():
             "skipped": skipped
         }
 
-        print("Pytest data:", pytest_data)
-        return pytest_data
-
     except Exception as e:
         print(f"Error parsing pytest XML: {e}")
-        return None
+        return {
+            "total": 0,
+            "passed": 0,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+        }
 
 
 def fetch_text_report(url, default_message):
     data = fetch_from_jenkins(url)
-    if not data:
-        return default_message
-    return data
+    return data if data else default_message
 
 
 def parse_dependency_check_report():
@@ -89,7 +101,7 @@ def parse_dependency_check_report():
 
     except Exception as e:
         print(f"Error parsing dependency-check XML: {e}")
-        return "Error reading Dependency Check report."
+        return "Dependency Check report exists, but could not be parsed."
 
 
 @app.route("/")

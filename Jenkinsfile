@@ -16,6 +16,8 @@ pipeline {
             steps {
                 sh '''
                     python3 --version
+                    docker --version
+                    trivy --version
                     pwd
                     ls -la
                     echo "----- APP CONTENT -----"
@@ -41,7 +43,6 @@ pipeline {
                     withSonarQubeEnv('SonarQube') {
                         script {
                             def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-
                             sh """
                                 ${scannerHome}/bin/sonar-scanner \
                                 -Dsonar.projectKey=devsecops-pipeline \
@@ -58,20 +59,31 @@ pipeline {
         }
 
         stage('Quality Gate') {
-        steps {
-            echo 'Quality Gate skipped for demo stability. SonarQube analysis is still completed and available in the dashboard.'
-    }
-}
+            steps {
+                echo 'Quality Gate skipped for demo stability. SonarQube analysis is still completed and available in the dashboard.'
+            }
+        }
 
         stage('Dependency Check') {
             steps {
                 dir('app') {
                     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                        dependencyCheck odcInstallation: 'OWASP-Dependency-Check',
-                        additionalArguments: '--noupdate --format XML --out .'
-                    }
+                        sh '''
+                            echo "Running OWASP Dependency Check using Docker..."
 
-                    dependencyCheckPublisher pattern: 'dependency-check-report.xml'
+                            docker run --rm \
+                            -v "$PWD":/src \
+                            -v dependency-check-data:/usr/share/dependency-check/data \
+                            owasp/dependency-check:latest \
+                            --project "DevSecOps Pipeline" \
+                            --scan /src \
+                            --format XML \
+                            --format HTML \
+                            --out /src || true
+
+                            ls -la
+                        '''
+                    }
                 }
             }
         }
@@ -131,6 +143,7 @@ pipeline {
                     cp app/pylint-report.txt reports/ || true
                     cp app/trivy-report.txt reports/ || true
                     cp app/dependency-check-report.xml reports/ || true
+                    cp app/dependency-check-report.html reports/ || true
 
                     echo "Reports folder contents:"
                     ls -la reports
@@ -147,6 +160,7 @@ pipeline {
                     test -f app/pylint-report.txt && echo "OK: pylint-report.txt found" || echo "MISSING: pylint-report.txt"
                     test -f app/trivy-report.txt && echo "OK: trivy-report.txt found" || echo "MISSING: trivy-report.txt"
                     test -f app/dependency-check-report.xml && echo "OK: dependency-check-report.xml found" || echo "MISSING: dependency-check-report.xml"
+                    test -f app/dependency-check-report.html && echo "OK: dependency-check-report.html found" || echo "MISSING: dependency-check-report.html"
 
                     echo "APP FOLDER:"
                     ls -la app
@@ -160,7 +174,7 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'app/*.xml, app/*.txt, reports/*',
+            archiveArtifacts artifacts: 'app/*.xml, app/*.txt, app/*.html, reports/*',
             fingerprint: true,
             allowEmptyArchive: true
 

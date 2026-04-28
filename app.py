@@ -2,6 +2,7 @@ from flask import Flask, render_template
 import xml.etree.ElementTree as ET
 import requests
 import os
+import json
 
 app = Flask(__name__)
 
@@ -17,8 +18,7 @@ REPORTS = {
     "pytest": f"{JENKINS_BASE_URL}/pytest-results.xml",
     "pylint": f"{JENKINS_BASE_URL}/pylint-report.txt",
     "trivy": f"{JENKINS_BASE_URL}/trivy-report.txt",
-    "dependency_xml": f"{JENKINS_BASE_URL}/dependency-check-report.xml",
-    "dependency_html": f"{JENKINS_BASE_URL}/dependency-check-report.html",
+    "dependency_json": f"{JENKINS_BASE_URL}/dependency-check-report.json",
 }
 
 
@@ -98,29 +98,32 @@ def fetch_text_report(report_name, default_message):
 
 
 def parse_dependency_check_report():
-    xml_data = fetch_from_jenkins(REPORTS["dependency_xml"])
+    json_data = fetch_from_jenkins(REPORTS["dependency_json"])
 
-    if not xml_data:
+    if not json_data:
         return {
-            "summary": "No Dependency Check XML report found.",
+            "summary": "No Dependency Check JSON report found.",
             "dependencies": 0,
             "vulnerabilities": 0
         }
 
     try:
-        root = ET.fromstring(xml_data)
+        report = json.loads(json_data)
+        dependencies = report.get("dependencies", [])
 
-        dependencies = root.findall(".//dependency")
-        vulnerabilities = root.findall(".//vulnerability")
+        vulnerability_count = 0
+
+        for dependency in dependencies:
+            vulnerability_count += len(dependency.get("vulnerabilities", []))
 
         return {
             "summary": "Dependency Check report loaded successfully.",
             "dependencies": len(dependencies),
-            "vulnerabilities": len(vulnerabilities)
+            "vulnerabilities": vulnerability_count
         }
 
     except Exception as error:
-        print(f"Error parsing Dependency Check XML: {error}")
+        print(f"Error parsing Dependency Check JSON: {error}")
 
         return {
             "summary": "Dependency Check report exists but could not be parsed.",

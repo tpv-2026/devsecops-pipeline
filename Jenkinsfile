@@ -43,6 +43,7 @@ pipeline {
                     withSonarQubeEnv('SonarQube') {
                         script {
                             def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+
                             sh """
                                 ${scannerHome}/bin/sonar-scanner \
                                 -Dsonar.projectKey=devsecops-pipeline \
@@ -75,11 +76,13 @@ pipeline {
                             -v "$PWD":/src \
                             -v dependency-check-data:/usr/share/dependency-check/data \
                             owasp/dependency-check:latest \
-                            --project "DevSecOps Pipeline" \
+                            --project "DevSecOps-Pipeline" \
                             --scan /src \
-                            --format XML \
-                            --format HTML \
-                            --out /src || true
+                            --format JSON \
+                            --out /src \
+                            --disableAssembly \
+                            --disableOssIndex \
+                            || true
 
                             ls -la
                         '''
@@ -142,8 +145,7 @@ pipeline {
                     cp app/pytest-results.xml reports/ || true
                     cp app/pylint-report.txt reports/ || true
                     cp app/trivy-report.txt reports/ || true
-                    cp app/dependency-check-report.xml reports/ || true
-                    cp app/dependency-check-report.html reports/ || true
+                    cp app/dependency-check-report.json reports/ || true
 
                     echo "Reports folder contents:"
                     ls -la reports
@@ -159,8 +161,7 @@ pipeline {
                     test -f app/pytest-results.xml && echo "OK: pytest-results.xml found" || echo "MISSING: pytest-results.xml"
                     test -f app/pylint-report.txt && echo "OK: pylint-report.txt found" || echo "MISSING: pylint-report.txt"
                     test -f app/trivy-report.txt && echo "OK: trivy-report.txt found" || echo "MISSING: trivy-report.txt"
-                    test -f app/dependency-check-report.xml && echo "OK: dependency-check-report.xml found" || echo "MISSING: dependency-check-report.xml"
-                    test -f app/dependency-check-report.html && echo "OK: dependency-check-report.html found" || echo "MISSING: dependency-check-report.html"
+                    test -f app/dependency-check-report.json && echo "OK: dependency-check-report.json found" || echo "MISSING: dependency-check-report.json"
 
                     echo "APP FOLDER:"
                     ls -la app
@@ -174,7 +175,7 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'app/*.xml, app/*.txt, app/*.html, reports/*',
+            archiveArtifacts artifacts: 'app/*.xml, app/*.txt, app/*.json, reports/*',
             fingerprint: true,
             allowEmptyArchive: true
 

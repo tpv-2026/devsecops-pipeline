@@ -5,52 +5,71 @@ import os
 
 app = Flask(__name__)
 
-JENKINS_USER = os.getenv("JENKINS_USER")
-JENKINS_TOKEN = os.getenv("JENKINS_TOKEN")
+JENKINS_USER = os.getenv("JENKINS_USER", "admin")
+JENKINS_TOKEN = os.getenv("JENKINS_TOKEN", "")
 
-JENKINS_BASE_URL = "http://localhost:8080/job/devsecops-pipeline-v2.0/lastSuccessfulBuild/artifact/app"
+JENKINS_BASE_URL = os.getenv(
+    "JENKINS_BASE_URL",
+    "http://localhost:8080/job/devsecops-pipeline-v2.0/lastSuccessfulBuild/artifact/app"
+)
 
-PYTEST_REPORT_URL = f"{JENKINS_BASE_URL}/pytest-results.xml"
-PYLINT_REPORT_URL = f"{JENKINS_BASE_URL}/pylint-report.txt"
-TRIVY_REPORT_URL = f"{JENKINS_BASE_URL}/trivy-report.txt"
-DEPENDENCY_REPORT_URL = f"{JENKINS_BASE_URL}/dependency-check-report.xml"
+REPORTS = {
+    "pytest": f"{JENKINS_BASE_URL}/pytest-results.xml",
+    "pylint": f"{JENKINS_BASE_URL}/pylint-report.txt",
+    "trivy": f"{JENKINS_BASE_URL}/trivy-report.txt",
+    "dependency_xml": f"{JENKINS_BASE_URL}/dependency-check-report.xml",
+    "dependency_html": f"{JENKINS_BASE_URL}/dependency-check-report.html",
+}
 
 
 def fetch_from_jenkins(url):
-    try:
-        if not JENKINS_USER or not JENKINS_TOKEN:
-            return None
+    if not JENKINS_USER or not JENKINS_TOKEN:
+        print("Jenkins credentials are missing.")
+        return None
 
+    try:
         response = requests.get(
             url,
             auth=(JENKINS_USER, JENKINS_TOKEN),
             timeout=10
         )
 
-        print(f"Jenkins response status for {url}: {response.status_code}")
+        print(f"Fetching: {url}")
+        print(f"Status code: {response.status_code}")
+
+        if response.status_code == 404:
+            print("Report does not exist yet.")
+            return None
+
         response.raise_for_status()
         return response.text
 
-    except requests.RequestException as e:
-        print(f"Error fetching from Jenkins: {e}")
+    except requests.RequestException as error:
+        print(f"Error fetching Jenkins artifact: {error}")
         return None
 
 
 def parse_pytest_results():
-    xml_data = fetch_from_jenkins(PYTEST_REPORT_URL)
+    xml_data = fetch_from_jenkins(REPORTS["pytest"])
+
+    default_result = {
+        "total": 0,
+        "passed": 0,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "status": "No pytest report found."
+    }
 
     if not xml_data:
-        return {
-            "total": 0,
-            "passed": 0,
-            "failures": 0,
-            "errors": 0,
-            "skipped": 0
-        }
+        return default_result
 
     try:
         root = ET.fromstring(xml_data)
-        testsuite = root.find("testsuite") or root
+
+        testsuite = root.find("testsuite")
+        if testsuite is None:
+            testsuite = root
 
         total = int(testsuite.attrib.get("tests", 0))
         failures = int(testsuite.attrib.get("failures", 0))
@@ -63,30 +82,30 @@ def parse_pytest_results():
             "passed": passed,
             "failures": failures,
             "errors": errors,
-            "skipped": skipped
+            "skipped": skipped,
+            "status": "Pytest report loaded successfully."
         }
 
-    except Exception as e:
-        print(f"Error parsing pytest XML: {e}")
-        return {
-            "total": 0,
-            "passed": 0,
-            "failures": 0,
-            "errors": 0,
-            "skipped": 0
-        }
+    except Exception as error:
+        print(f"Error parsing pytest XML: {error}")
+        default_result["status"] = "Pytest report exists but could not be parsed."
+        return default_result
 
 
-def fetch_text_report(url, default_message):
-    data = fetch_from_jenkins(url)
+def fetch_text_report(report_name, default_message):
+    data = fetch_from_jenkins(REPORTS[report_name])
     return data if data else default_message
 
 
 def parse_dependency_check_report():
-    xml_data = fetch_from_jenkins(DEPENDENCY_REPORT_URL)
+    xml_data = fetch_from_jenkins(REPORTS["dependency_xml"])
 
     if not xml_data:
-        return "No Dependency Check report found."
+        return {
+            "summary": "No Dependency Check XML report found.",
+            "dependencies": 0,
+            "vulnerabilities": 0
+        }
 
     try:
         root = ET.fromstring(xml_data)
@@ -94,21 +113,36 @@ def parse_dependency_check_report():
         dependencies = root.findall(".//dependency")
         vulnerabilities = root.findall(".//vulnerability")
 
-        return (
-            f"Dependencies scanned: {len(dependencies)}\n"
-            f"Vulnerabilities found: {len(vulnerabilities)}"
-        )
+        return {
+            "summary": "Dependency Check report loaded successfully.",
+            "dependencies": len(dependencies),
+            "vulnerabilities": len(vulnerabilities)
+        }
 
-    except Exception as e:
-        print(f"Error parsing dependency-check XML: {e}")
-        return "Dependency Check report exists, but could not be parsed."
+    except Exception as error:
+        print(f"Error parsing Dependency Check XML: {error}")
+
+        return {
+            "summary": "Dependency Check report exists but could not be parsed.",
+            "dependencies": 0,
+            "vulnerabilities": 0
+        }
 
 
 @app.route("/")
 def dashboard():
     pytest_data = parse_pytest_results()
-    pylint_data = fetch_text_report(PYLINT_REPORT_URL, "No pylint report found.")
-    trivy_data = fetch_text_report(TRIVY_REPORT_URL, "No Trivy report found.")
+
+    pylint_data = fetch_text_report(
+        "pylint",
+        "No pylint report found."
+    )
+
+    trivy_data = fetch_text_report(
+        "trivy",
+        "No Trivy report found."
+    )
+
     dependency_data = parse_dependency_check_report()
 
     return render_template(
@@ -116,9 +150,15 @@ def dashboard():
         pytest=pytest_data,
         pylint=pylint_data,
         trivy=trivy_data,
-        dependency=dependency_data
+        dependency=dependency_data,
+        jenkins_base_url=JENKINS_BASE_URL
     )
 
 
 if __name__ == "__main__":
+    print("Starting DevSecOps Dashboard Backend...")
+    print(f"Jenkins base URL: {JENKINS_BASE_URL}")
+    print(f"Jenkins user configured: {'YES' if JENKINS_USER else 'NO'}")
+    print(f"Jenkins token configured: {'YES' if JENKINS_TOKEN else 'NO'}")
+
     app.run(host="0.0.0.0", port=5000, debug=True)

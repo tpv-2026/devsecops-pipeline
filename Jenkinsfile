@@ -5,10 +5,6 @@ pipeline {
         timestamps()
     }
 
-    tools {
-        sonarScanner 'SonarScanner'
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -43,15 +39,19 @@ pipeline {
             steps {
                 dir('app') {
                     withSonarQubeEnv('SonarQube') {
-                        sh '''
-                            sonar-scanner \
-                            -Dsonar.projectKey=devsecops-pipeline \
-                            -Dsonar.projectName=DevSecOps_Pipeline \
-                            -Dsonar.sources=. \
-                            -Dsonar.python.version=3.13 \
-                            -Dsonar.tests=. \
-                            -Dsonar.test.inclusions=test_*.py
-                        '''
+                        script {
+                            def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+
+                            sh """
+                                ${scannerHome}/bin/sonar-scanner \
+                                -Dsonar.projectKey=devsecops-pipeline \
+                                -Dsonar.projectName=DevSecOps_Pipeline \
+                                -Dsonar.sources=. \
+                                -Dsonar.python.version=3.13 \
+                                -Dsonar.tests=. \
+                                -Dsonar.test.inclusions=test_*.py
+                            """
+                        }
                     }
                 }
             }
@@ -72,6 +72,7 @@ pipeline {
                         dependencyCheck odcInstallation: 'OWASP-Dependency-Check',
                         additionalArguments: '--noupdate --format XML --out .'
                     }
+
                     dependencyCheckPublisher pattern: 'dependency-check-report.xml'
                 }
             }

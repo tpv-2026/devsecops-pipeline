@@ -69,22 +69,20 @@ pipeline {
             steps {
                 dir('app') {
                     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        dependencyCheck(
+                            odcInstallation: 'OWASP-Dependency-Check',
+                            additionalArguments: '''
+                                --project "DevSecOps-Pipeline"
+                                --scan .
+                                --format JSON
+                                --format HTML
+                                --out .
+                                --disableAssembly
+                                --disableOssIndex
+                            '''
+                        )
+
                         sh '''
-                            echo "Running OWASP Dependency Check using Docker..."
-
-                            docker run --rm \
-                            -v "$PWD":/src \
-                            -v dependency-check-data:/usr/share/dependency-check/data \
-                            --entrypoint /bin/sh \
-                            owasp/dependency-check:latest \
-                            -c 'dependency-check.sh \
-                            --project "DevSecOps-Pipeline" \
-                            --scan /src \
-                            --format JSON \
-                            --out /src \
-                            --disableAssembly \
-                            --disableOssIndex'
-
                             echo "Dependency Check output:"
                             ls -la
 
@@ -96,6 +94,8 @@ pipeline {
                             fi
                         '''
                     }
+
+                    dependencyCheckPublisher pattern: 'dependency-check-report.json'
                 }
             }
         }
@@ -155,6 +155,7 @@ pipeline {
                     cp app/pylint-report.txt reports/ || true
                     cp app/trivy-report.txt reports/ || true
                     cp app/dependency-check-report.json reports/ || true
+                    cp app/dependency-check-report.html reports/ || true
 
                     echo "Reports folder contents:"
                     ls -la reports
@@ -171,6 +172,7 @@ pipeline {
                     test -f app/pylint-report.txt && echo "OK: pylint-report.txt found" || echo "MISSING: pylint-report.txt"
                     test -f app/trivy-report.txt && echo "OK: trivy-report.txt found" || echo "MISSING: trivy-report.txt"
                     test -f app/dependency-check-report.json && echo "OK: dependency-check-report.json found" || echo "MISSING: dependency-check-report.json"
+                    test -f app/dependency-check-report.html && echo "OK: dependency-check-report.html found" || echo "MISSING: dependency-check-report.html"
 
                     echo "APP FOLDER:"
                     ls -la app
@@ -184,12 +186,12 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'app/*.xml, app/*.txt, app/*.json, reports/*',
-            fingerprint: true,
-            allowEmptyArchive: true
+            archiveArtifacts artifacts: 'app/*.xml, app/*.txt, app/*.json, app/*.html, reports/*',
+                fingerprint: true,
+                allowEmptyArchive: true
 
             junit testResults: 'app/pytest-results.xml',
-            allowEmptyResults: true
+                allowEmptyResults: true
         }
 
         success {

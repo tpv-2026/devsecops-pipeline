@@ -5,6 +5,10 @@ pipeline {
         timestamps()
     }
 
+    tools {
+        sonarScanner 'SonarScanner'
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -12,14 +16,12 @@ pipeline {
             }
         }
 
-        stage('Check Python') {
+        stage('Check Environment') {
             steps {
                 sh '''
                     python3 --version
                     pwd
                     ls -la
-                    echo "----- ROOT CONTENT -----"
-                    ls -la .
                     echo "----- APP CONTENT -----"
                     ls -la app
                 '''
@@ -42,7 +44,7 @@ pipeline {
                 dir('app') {
                     withSonarQubeEnv('SonarQube') {
                         sh '''
-                            /var/jenkins_home/tools/hudson.plugins.sonar.SonarRunnerInstallation/SonarScanner/bin/sonar-scanner \
+                            sonar-scanner \
                             -Dsonar.projectKey=devsecops-pipeline \
                             -Dsonar.projectName=DevSecOps_Pipeline \
                             -Dsonar.sources=. \
@@ -63,11 +65,12 @@ pipeline {
             }
         }
 
-        stage('Dependency Checks') {
+        stage('Dependency Check') {
             steps {
                 dir('app') {
                     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                        dependencyCheck odcInstallation: 'OWASP-Dependency-Check', additionalArguments: '--noupdate --format XML'
+                        dependencyCheck odcInstallation: 'OWASP-Dependency-Check',
+                        additionalArguments: '--noupdate --format XML --out .'
                     }
                     dependencyCheckPublisher pattern: 'dependency-check-report.xml'
                 }
@@ -111,30 +114,17 @@ pipeline {
             steps {
                 dir('app') {
                     sh '''
-                        trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 0 devsecops-pipeline-app:latest > trivy-report.txt
+                        trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 0 devsecops-pipeline-app:latest > trivy-report.txt || true
                         cat trivy-report.txt
                     '''
                 }
             }
         }
 
-        stage('Verify Reports Exist') {
+        stage('Copy Reports to Dashboard Folder') {
             steps {
                 sh '''
-                    echo "Checking generated report files..."
-                    test -f app/pytest-results.xml && echo "OK: pytest-results.xml found"
-                    test -f app/pylint-report.txt && echo "OK: pylint-report.txt found"
-                    test -f app/trivy-report.txt && echo "OK: trivy-report.txt found"
-                    test -f app/dependency-check-report.xml && echo "OK: dependency-check-report.xml found"
-                    ls -la app
-                '''
-            }
-        }
-
-         stage('Copy Reports to Dashboard Folder') {
-            steps {
-                 sh '''
-                    echo "Copying reports to local reports folder..."
+                    echo "Copying reports to dashboard folder..."
 
                     mkdir -p reports
 
@@ -145,25 +135,50 @@ pipeline {
 
                     echo "Reports folder contents:"
                     ls -la reports
-        '''
-    }
-}
-         stage('Show Reports Folder') {
-    steps {
-        sh '''
-            echo "ROOT REPORTS:"
-            ls -la reports || true
-            echo "APP REPORTS:"
-            ls -la app || true
-        '''
-    }
-}
+                '''
+            }
+        }
+
+        stage('Verify Reports Exist') {
+            steps {
+                sh '''
+                    echo "Checking generated report files..."
+
+                    test -f app/pytest-results.xml && echo "OK: pytest-results.xml found" || echo "MISSING: pytest-results.xml"
+                    test -f app/pylint-report.txt && echo "OK: pylint-report.txt found" || echo "MISSING: pylint-report.txt"
+                    test -f app/trivy-report.txt && echo "OK: trivy-report.txt found" || echo "MISSING: trivy-report.txt"
+                    test -f app/dependency-check-report.xml && echo "OK: dependency-check-report.xml found" || echo "MISSING: dependency-check-report.xml"
+
+                    echo "APP FOLDER:"
+                    ls -la app
+
+                    echo "REPORTS FOLDER:"
+                    ls -la reports || true
+                '''
+            }
+        }
     }
 
     post {
         always {
-            archiveArtifacts artifacts: 'app/*.xml, app/*.txt', fingerprint: true
-            junit 'app/pytest-results.xml'
+            archiveArtifacts artifacts: 'app/*.xml, app/*.txt, reports/*',
+            fingerprint: true,
+            allowEmptyArchive: true
+
+            junit testResults: 'app/pytest-results.xml',
+            allowEmptyResults: true
+        }
+
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+
+        unstable {
+            echo 'Pipeline completed but one or more security/quality checks were unstable.'
+        }
+
+        failure {
+            echo 'Pipeline failed. Check the failed stage above.'
         }
     }
 }

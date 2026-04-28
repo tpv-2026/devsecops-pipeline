@@ -75,16 +75,25 @@ pipeline {
                             docker run --rm \
                             -v "$PWD":/src \
                             -v dependency-check-data:/usr/share/dependency-check/data \
+                            --entrypoint /bin/sh \
                             owasp/dependency-check:latest \
+                            -c 'dependency-check.sh \
                             --project "DevSecOps-Pipeline" \
                             --scan /src \
                             --format JSON \
                             --out /src \
                             --disableAssembly \
-                            --disableOssIndex \
-                            || true
+                            --disableOssIndex'
 
+                            echo "Dependency Check output:"
                             ls -la
+
+                            if [ -f dependency-check-report.json ]; then
+                                echo "OK: dependency-check-report.json created"
+                            else
+                                echo "MISSING: dependency-check-report.json"
+                                exit 1
+                            fi
                         '''
                     }
                 }
